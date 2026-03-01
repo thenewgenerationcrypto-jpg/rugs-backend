@@ -1,169 +1,53 @@
-import express from "express";
-import cors from "cors";
+const express = require("express");
+const cors = require("cors");
+const axios = require("axios");
 
 const app = express();
-
 app.use(cors());
-app.use(express.json());
-
-let users = {};
-
-app.get("/", (req,res)=>{
- res.send("Backend online");
-});
-
-app.post("/login",(req,res)=>{
- const {username,password} = req.body;
-
- if(!username || !password){
-  return res.json({success:false});
- }
-
- if(!users[username]){
-  users[username]={
-   password:password,
-   balance:1000
-  };
- }
-
- if(users[username].password !== password){
-  return res.json({success:false});
- }
-
- res.json({
-  success:true,
-  balance:users[username].balance
- });
-});
 
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT,()=>{
- console.log("Server running on port",PORT);
-});import express from "express";
-import cors from "cors";
-
-const app = express();
-
-app.use(cors());
-app.use(express.json());
-
-let users = {};
-
-app.get("/", (req,res)=>{
- res.send("Backend online");
+app.get("/", (req, res) => {
+    res.send("Backend running");
 });
 
-app.post("/login",(req,res)=>{
- const {username,password} = req.body;
+app.get("/api/price", async (req, res) => {
+    try {
+        const response = await axios.get(
+            "https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT"
+        );
 
- if(!username || !password){
-  return res.json({success:false});
- }
+        res.json({
+            price: parseFloat(response.data.price),
+            symbol: "SOLUSDT",
+            time: Date.now()
+        });
 
- if(!users[username]){
-  users[username]={
-   password:password,
-   balance:1000
-  };
- }
-
- if(users[username].password !== password){
-  return res.json({success:false});
- }
-
- res.json({
-  success:true,
-  balance:users[username].balance
- });
+    } catch (error) {
+        res.status(500).json({ error: "Error getting price" });
+    }
 });
 
-const PORT = process.env.PORT || 3000;
+app.get("/api/candles", async (req, res) => {
+    try {
+        const response = await axios.get(
+            "https://api.binance.com/api/v3/klines?symbol=SOLUSDT&interval=1m&limit=50"
+        );
 
-app.listen(PORT,()=>{
- console.log("Server running on port",PORT);
-});import express from "express";
-import cors from "cors";
+        const candles = response.data.map(c => ({
+            open: parseFloat(c[1]),
+            high: parseFloat(c[2]),
+            low: parseFloat(c[3]),
+            close: parseFloat(c[4])
+        }));
 
-const app = express();
+        res.json(candles);
 
-app.use(cors());
-app.use(express.json());
-
-let users = {};
-
-app.get("/", (req,res)=>{
- res.send("Backend online");
+    } catch (error) {
+        res.status(500).json({ error: "Error getting candles" });
+    }
 });
 
-app.post("/login",(req,res)=>{
- const {username,password} = req.body;
-
- if(!username || !password){
-  return res.json({success:false});
- }
-
- if(!users[username]){
-  users[username]={
-   password:password,
-   balance:1000
-  };
- }
-
- if(users[username].password !== password){
-  return res.json({success:false});
- }
-
- res.json({
-  success:true,
-  balance:users[username].balance
- });
-});
-
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT,()=>{
- console.log("Server running on port",PORT);
-});import express from "express";
-import cors from "cors";
-
-const app = express();
-
-app.use(cors());
-app.use(express.json());
-
-let users = {};
-
-app.get("/", (req,res)=>{
- res.send("Backend online");
-});
-
-app.post("/login",(req,res)=>{
- const {username,password} = req.body;
-
- if(!username || !password){
-  return res.json({success:false});
- }
-
- if(!users[username]){
-  users[username]={
-   password:password,
-   balance:1000
-  };
- }
-
- if(users[username].password !== password){
-  return res.json({success:false});
- }
-
- res.json({
-  success:true,
-  balance:users[username].balance
- });
-});
-
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT,()=>{
- console.log("Server running on port",PORT);
+app.listen(PORT, () => {
+    console.log("Server running on port", PORT);
 });
