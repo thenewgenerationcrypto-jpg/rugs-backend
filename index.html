@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Rugs PRO Smooth</title>
+<style>
+body{
+  margin:0;
+  background:#0b0f1a;
+  font-family:Segoe UI, Arial, sans-serif;
+  color:#e6edf3;
+  overflow:hidden;
+  display:flex;
+  justify-content:center;
+  align-items:flex-start;
+  height:100vh;
+  padding-top:20px;
+}
+
+#walletBtn, #logoutBtn, #resetLeaderboardBtn{
+  position:fixed;
+  top:10px;
+  right:10px;
+  padding:6px 14px;
+  font-size:14px;
+  font-weight:bold;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+  z-index:1000;
+}
+#walletBtn{ background:#9945FF; color:white; }
+#logoutBtn{ display:none; right:150px; background:#ef4444; color:white; }
+#resetLeaderboardBtn{ top:80px; right:10px; padding:4px 8px; font-size:12px; font-weight:bold; background:#facc15; color:#111827; }
+
+#walletStatus{
+  position:fixed;
+  top:45px;
+  right:10px;
+  width:200px;
+  font-size:14px;
+  color:#22c55e;
+  font-weight:bold;
+  text-align:center;
+}
+
+#leaderboard{
+  position:fixed;
+  top:120px;
+  right:10px;
+  width:200px;
+  background:#1c1f2a;
+  border-radius:12px;
+  padding:10px;
+  font-size:14px;
+  max-height:400px;
+  overflow-y:auto;
+}
+#leaderboard h3{
+  text-align:center;
+  margin:0 0 10px 0;
+}
+
+#chartWrapper{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  margin-top:70px;
+}
+
+#logoHeader{
+  width:860px;
+  display:flex;
+  justify-content:center;
+  margin-bottom:10px;
+}
+
+#logoHeader img{
+  max-width:220px;
+  border-radius:12px;
+}
+
+header{
+  width:860px;
+  background:#1c1f2a;
+  padding:15px 20px;
+  border-radius:12px;
+  font-size:24px;
+  font-weight:bold;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:5px;
+}
+
+#statsHeader{
+  display:flex;
+  gap:30px;
+  font-size:18px;
+}
+
+#statsHeader span{
+  background:#252935;
+  padding:6px 12px;
+  border-radius:8px;
+}
+
+#buttonsContainer{
+  display:flex;
+  gap:10px;
+}
+
+.tradeBtn{
+  padding:10px 20px;
+  font-size:16px;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+  font-weight:bold;
+}
+
+#buyBtn{
+  background:#16a34a;
+  color:white;
+}
+
+#sellBtn{
+  background:#dc2626;
+  color:white;
+}
+
+#chartContainer{
+  width:860px;
+  height:500px;
+  position:relative;
+  border:2px solid #2c2f3a;
+  border-radius:12px;
+  background:#111827;
+}
+
+#centerAlert{
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  font-size:48px;
+  font-weight:bold;
+  opacity:1;
+  pointer-events:none;
+}
+
+#messageBox{
+  position:absolute;
+  bottom:30px;
+  left:50%;
+  transform:translateX(-50%);
+  padding:20px 30px;
+  background:#1c1f2a;
+  border-radius:12px;
+  border:2px solid #22c55e;
+  font-size:20px;
+  font-weight:bold;
+  display:none;
+  text-align:center;
+  z-index:1001;
+}
+.win{color:#22c55e;}
+.lose{color:#ef4444;}
+.volumeBar{
+  position:absolute;
+  bottom:0;
+  width:20px;
+}
+</style>
+</head>
+<body>
+
+<button id="walletBtn">Crear / Iniciar Usuario</button>
+<button id="logoutBtn">Cerrar Sesión</button>
+<button id="resetLeaderboardBtn">Reset Leaderboard</button>
+
+<div id="walletStatus">No conectado</div>
+
+<div id="leaderboard">
+<h3>Leaderboard</h3>
+<div id="leaderboardList"></div>
+</div>
+
+<div id="chartWrapper">
+<div id="logoHeader">
+<img src="logo.png">
+</div>
+
+<header>
+<div id="statsHeader">
+<span>Balance: $<span id="balance">0.00</span></span>
+<span>P/L: $<span id="profit">0.00</span></span>
+<span>Tiempo: <span id="timer">0</span></span>
+</div>
+
+<div id="buttonsContainer">
+<button id="buyBtn" class="tradeBtn">BUY</button>
+<button id="sellBtn" class="tradeBtn">SELL</button>
+</div>
+</header>
+
+<div id="chartContainer">
+<canvas id="chart" width="860" height="500"></canvas>
+<div id="centerAlert"></div>
+<div id="messageBox"></div>
+</div>
+
+</div>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, set, get, update, onValue, remove, onDisconnect }
+from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+const firebaseConfig = {
+apiKey: "AIzaSyCfgRcMygStHhwjSqMAvz4DKWbCF_lTQh4",
+authDomain: "rugs-pro-34238.firebaseapp.com",
+databaseURL: "https://rugs-pro-34238-default-rtdb.firebaseio.com",
+projectId: "rugs-pro-34238",
+storageBucket: "rugs-pro-34238.firebasestorage.app",
+messagingSenderId: "412108239952",
+appId: "1:412108239952:web:3f033fa7db9772fdc68d55"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+/* ELEMENTOS */
+const walletBtn=document.getElementById("walletBtn");
+const logoutBtn=document.getElementById("logoutBtn");
+const resetLeaderboardBtn=document.getElementById("resetLeaderboardBtn");
+const walletStatus=document.getElementById("walletStatus");
+
+const balanceEl=document.getElementById("balance");
+const profitEl=document.getElementById("profit");
+const leaderboardList=document.getElementById("leaderboardList");
+
+const messageBox=document.getElementById("messageBox");
+
+let balance=1000;
+let tempBalance=1000;
+let profit=0;
+
+let bet=null;
+let showXn=false;
+let multiplier=0;
+
+const BET_AMOUNT=100;
+
+/* LOGIN SEGURO USANDO TU BACKEND RENDER */
+walletBtn.onclick=async ()=>{
+
+  let username=prompt("Usuario:");
+  if(!username) return;
+
+  username=username.toLowerCase();
+
+  let password=prompt("Contraseña:");
+  if(!password) return;
+
+  try{
+
+    const res = await fetch("https://rugs-backend-mz4f.onrender.com/login",{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json"
+      },
+      body:JSON.stringify({
+        username:username,
+        password:password
+      })
+    });
+
+    const data = await res.json();
+
+    if(!data.success){
+      alert("Contraseña incorrecta");
+      return;
+    }
+
+    balance=data.balance;
+    tempBalance=balance;
+
+    localStorage.setItem("currentUser",username);
+
+    walletStatus.innerText="Conectado: "+username;
+
+    walletBtn.style.display="none";
+    logoutBtn.style.display="inline-block";
+
+    // mantener leaderboard visual
+    const userRef=ref(db,"users/"+username);
+
+    await update(userRef,{
+      online:true
+    });
+
+    onDisconnect(userRef).update({
+      online:false
+    });
+
+  }
+  catch(e){
+
+    alert("No se pudo conectar al servidor");
+
+  }
+
+};
+
+logoutBtn.onclick=async ()=>{
+  const user=localStorage.getItem("currentUser");
+  if(user) await update(ref(db,"users/"+user),{online:false});
+  localStorage.removeItem("currentUser");
+  walletStatus.innerText="No conectado";
+  walletBtn.style.display="inline-block";
+  logoutBtn.style.display="none";
+};
+
+resetLeaderboardBtn.onclick=async ()=>{
+  if(confirm("Reset leaderboard?"))
+    await remove(ref(db,"users"));
+};
+
+onValue(ref(db,"users"),snap=>{
+  leaderboardList.innerHTML="";
+  const data=snap.val();
+  if(!data) return;
+  Object.entries(data)
+  .sort((a,b)=>b[1].balance-a[1].balance)
+  .forEach(user=>{
+    const div=document.createElement("div");
+    div.innerText=user[0]+" $"+(user[1].balance||0).toFixed(2)+(user[1].online?" 🟢":"");
+    leaderboardList.appendChild(div);
+  });
+});
+
+/* JUEGO */
+const canvas=document.getElementById("chart");
+const ctx=canvas.getContext("2d");
+
+let price=100;
+let candles=[];
+let currentCandle=null;
+let candleWidth=20;
+let candleGap=8;
+
+let velocity=0;
+let volatility=0.02;
+let lastCandle=0;
+
+let cameraOffset=0;
+let targetCameraOffset=0;
+
+let inRound=true;
+let roundTime=20;
+let timeLeft=20;
+let nextRound=5;
+
+let smoothMin=0;
+let smoothMax=100;
+
+const timerEl=document.getElementById("timer");
+
+document.getElementById("buyBtn").onclick=()=>placeBet("BUY");
+document.getElementById("sellBtn").onclick=()=>placeBet("SELL");
+
+function placeBet(type){
+  if(!inRound||bet) return;
+  bet={type:type,entry:price};
+  showXn=true;
+}
+
+/* ROUND */
+function startRound(){
+  candles=[];
+  price=80+Math.random()*40;
+  velocity=0;
+  roundTime=15+Math.random()*10;
+  timeLeft=roundTime;
+  smoothMin=price-10;
+  smoothMax=price+10;
+  inRound=true;
+  profit=0;
+  tempBalance=balance;
+  bet=null;
+  showXn=false;
+  messageBox.style.display="none";
+}
+
+/* FIN ROUND */
+async function endRound(){
+  inRound=false;
+  nextRound=5;
+
+  if(bet){
+    balance=tempBalance;
+    const user=localStorage.getItem("currentUser");
+    if(user) await update(ref(db,"users/"+user),{balance:balance});
+
+    // mostrar mensaje de ganancia/perdida
+    messageBox.style.display="block";
+    messageBox.innerHTML=`${profit>=0?'Ganaste':'Perdiste'} $${Math.abs(profit).toFixed(2)}<br>Próxima ronda en ${nextRound.toFixed(0)}s`;
+    bet=null;
+    showXn=false;
+  }
+}
+
+/* MARKET */
+function updateMarket(){
+  // movimiento muy suave de centavos
+  const change=(Math.random()-0.5)*0.2; // centavos
+  velocity+=(change);
+  velocity*=0.95;
+  price+=velocity;
+  if(price<0.01) price=0.01;
+}
+
+/* CANDLE */
+function updateCandle(){
+  const now=performance.now();
+  if(!currentCandle) currentCandle={open:price,high:price,low:price,close:price,volume:Math.random()*10};
+  currentCandle.close=price;
+  if(price>currentCandle.high)currentCandle.high=price;
+  if(price<currentCandle.low)currentCandle.low=price;
+  currentCandle.volume=Math.max(currentCandle.volume,Math.random()*10);
+
+  if(now-lastCandle>200){
+    candles.push(currentCandle);
+    currentCandle=null;
+    lastCandle=now;
+  }
+}
+
+/* PROFIT */
+function updateProfit(){
+  if(!bet){ profit=0; multiplier=0; return; }
+  let rawMultiplier=bet.type==="BUY"? price/bet.entry : bet.entry/price;
+  multiplier=rawMultiplier-1;
+  profit=BET_AMOUNT*multiplier;
+  tempBalance=balance+profit;
+}
+
+/* CAMERA */
+// === CAMARA AJUSTADA PARA QUE LA ÚLTIMA VELA SIEMPRE SEA VISIBLE ===
+function updateCamera(){
+  const visibleCandles = Math.floor(canvas.width / (candleWidth + candleGap));
+  const totalCandles = candles.length;
+
+  if(totalCandles <= visibleCandles){
+    cameraOffset = 0; // si hay pocas velas, mostrar desde la primera
+  } else {
+    // ajustar cámara para que la última vela se vea completa
+    const targetOffset = (totalCandles - visibleCandles) * (candleWidth + candleGap);
+    cameraOffset += (targetOffset - cameraOffset) * 0.1; // suavizado
+  }
+}
+
+/* SCALE */
+function updateScale(){
+  const all=currentCandle?[...candles,currentCandle]:candles;
+  if(all.length===0) return;
+  let min=Infinity,max=-Infinity;
+  all.forEach(c=>{if(c.low<min)min=c.low; if(c.high>max)max=c.high;});
+  const pad=(max-min)*0.3;
+  smoothMin+=(min-pad-smoothMin)*0.05;
+  smoothMax+=(max+pad-smoothMax)*0.05;
+}
+
+/* DRAW */
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const all=currentCandle?[...candles,currentCandle]:candles;
+  if(all.length===0) return;
+  const scale=canvas.height/(smoothMax-smoothMin);
+
+  // dibujar velas
+  all.forEach((c,i)=>{
+    const x=i*(candleWidth+candleGap)-cameraOffset;
+    const openY=canvas.height-(c.open-smoothMin)*scale;
+    const closeY=canvas.height-(c.close-smoothMin)*scale;
+    const highY=canvas.height-(c.high-smoothMin)*scale;
+    const lowY=canvas.height-(c.low-smoothMin)*scale;
+    const green=c.close>=c.open;
+    ctx.fillStyle=green?"#16a34a":"#dc2626";
+    ctx.fillRect(x,Math.min(openY,closeY),candleWidth,Math.abs(closeY-openY));
+    ctx.beginPath();
+    ctx.moveTo(x+candleWidth/2,highY);
+    ctx.lineTo(x+candleWidth/2,lowY);
+    ctx.strokeStyle=ctx.fillStyle;
+    ctx.stroke();
+
+    // dibujar volumen
+    const volHeight=c.volume*2;
+    ctx.fillStyle="rgba(255,255,255,0.2)";
+    ctx.fillRect(x,canvas.height-volHeight,candleWidth,volHeight);
+  });
+
+  // multiplicador X
+  if(showXn){
+    const bounce=1+Math.sin(performance.now()/120)*0.25;
+    ctx.textAlign="center";
+    ctx.textBaseline="middle";
+    ctx.font=`bold ${60*bounce}px Comic Sans MS`;
+    ctx.lineWidth=6;
+    const text=(multiplier>=0?"+":"")+multiplier.toFixed(2)+"x";
+    ctx.strokeStyle="#000";
+    ctx.fillStyle=multiplier>=0?"#22c55e":"#ef4444";
+    ctx.strokeText(text,canvas.width/2,canvas.height/2);
+    ctx.fillText(text,canvas.width/2,canvas.height/2);
+  }
+}
+
+/* UI */
+function updateUI(){
+  balanceEl.innerText=tempBalance.toFixed(2);
+  profitEl.innerText=profit.toFixed(2);
+  timerEl.innerText=Math.ceil(inRound?timeLeft:nextRound);
+}
+
+/* LOOP */
+function loop(){
+  if(inRound){
+    updateMarket();
+    updateCandle();
+    updateProfit();
+    updateScale();
+    timeLeft-=1/60;
+    if(timeLeft<=0) endRound();
+  } else {
+    nextRound-=1/60;
+    if(nextRound<=0) startRound();
+    if(messageBox.style.display==="block") messageBox.innerHTML=`${profit>=0?'Ganaste':'Perdiste'} $${Math.abs(profit).toFixed(2)}<br>Próxima ronda en ${Math.ceil(nextRound)}s`;
+  }
+  updateCamera();
+  updateUI();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+startRound();
+loop();
+
+</script>
+</body>
+</html>
